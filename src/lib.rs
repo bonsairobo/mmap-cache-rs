@@ -1,5 +1,3 @@
-#![feature(int_roundings)]
-
 mod builder;
 mod cache;
 mod error;
