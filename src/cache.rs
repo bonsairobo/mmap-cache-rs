@@ -32,6 +32,10 @@ where
         })
     }
 
+    pub fn index(&self) -> &fst::Map<DK> {
+        &self.index
+    }
+
     /// Loads the value at the given byte offset.
     ///
     /// Note that this may block in the case of a page fault, and this will be a common scenario for large or cold data sets.
