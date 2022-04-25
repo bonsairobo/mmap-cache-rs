@@ -43,9 +43,9 @@ where
     }
 
     /// Completes the serialization and flushes any outstanding IO.
-    pub fn finish(mut self) -> fst::Result<()> {
+    pub fn finish(mut self) -> Result<(), Error> {
         self.value_writer.flush()?;
-        self.map_builder.finish()
+        Ok(self.map_builder.finish()?)
     }
 }
 
