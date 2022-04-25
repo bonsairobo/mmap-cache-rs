@@ -58,10 +58,10 @@ impl FileBuilder {
     /// This always overwrites the given files.
     ///
     /// After calling `finish`, these same files can be used with `Cache::map_files`.
-    pub fn create_files<P>(index_path: P, value_path: P) -> Result<Self, Error>
-    where
-        P: AsRef<Path>,
-    {
+    pub fn create_files(
+        index_path: impl AsRef<Path>,
+        value_path: impl AsRef<Path>,
+    ) -> Result<Self, Error> {
         let index_file = fs::File::create(index_path)?;
         let value_file = fs::File::create(value_path)?;
         Builder::new(index_file, value_file)
