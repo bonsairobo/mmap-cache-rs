@@ -1,6 +1,6 @@
 use crate::Error;
 
-use fst::IntoStreamer;
+use fst::{IntoStreamer, Streamer};
 use memmap::Mmap;
 use std::fs;
 use std::mem;
@@ -75,6 +75,31 @@ where
             Bound::Included(b) => builder.le(b),
         };
         builder.into_stream()
+    }
+
+    pub fn first_key<const N: usize>(&self) -> Option<[u8; N]> {
+        self.index.keys().next().map(|k| {
+            let mut key = [0; N];
+            key.copy_from_slice(k);
+            key
+        })
+    }
+
+    pub fn last_key<const N: usize>(&self) -> Option<[u8; N]> {
+        let raw = self.index.as_fst();
+        let mut key = [0; N];
+        let mut n = raw.root();
+        let mut i = 0;
+        while !n.is_final() {
+            let last = n.transition(n.len() - 1);
+            key[i] = last.inp;
+            n = raw.node(last.addr);
+            i += 1;
+        }
+        if i != N {
+            return None;
+        }
+        Some(key)
     }
 }
 

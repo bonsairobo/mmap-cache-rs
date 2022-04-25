@@ -48,5 +48,8 @@ mod tests {
             key_values,
             [(dog.to_vec(), &[2, 3, 4]), (frog.to_vec(), &[3, 4, 5])]
         );
+
+        assert_eq!(cache.first_key().as_ref(), Some(b"cat"));
+        assert_eq!(cache.last_key().as_ref(), Some(b"goose"));
     }
 }
