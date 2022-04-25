@@ -82,10 +82,10 @@ pub type MmapCache = Cache<Mmap, Mmap>;
 
 impl MmapCache {
     /// Maps the files at `index_path` and `value_path` to read-only virtual memory ranges.
-    pub unsafe fn map_paths<P>(index_path: P, value_path: P) -> Result<Self, Error>
-    where
-        P: AsRef<Path>,
-    {
+    pub unsafe fn map_paths(
+        index_path: impl AsRef<Path>,
+        value_path: impl AsRef<Path>,
+    ) -> Result<Self, Error> {
         let index_file = fs::File::open(index_path)?;
         let value_file = fs::File::open(value_path)?;
         Self::map_files(&index_file, &value_file)
