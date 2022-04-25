@@ -77,6 +77,9 @@ where
         builder.into_stream()
     }
 
+    /// # Panics
+    ///
+    /// If the actual first key is longer than `N`.
     pub fn first_key<const N: usize>(&self) -> Option<[u8; N]> {
         self.index.keys().next().map(|k| {
             let mut key = [0; N];
@@ -85,6 +88,9 @@ where
         })
     }
 
+    /// # Panics
+    ///
+    /// If the actual last key is longer than `N`.
     pub fn last_key<const N: usize>(&self) -> Option<[u8; N]> {
         let raw = self.index.as_fst();
         let mut key = [0; N];
@@ -96,10 +102,7 @@ where
             n = raw.node(last.addr);
             i += 1;
         }
-        if i != N {
-            return None;
-        }
-        Some(key)
+        (i == N).then(|| key)
     }
 }
 
@@ -107,6 +110,10 @@ pub type MmapCache = Cache<Mmap, Mmap>;
 
 impl MmapCache {
     /// Maps the files at `index_path` and `value_path` to read-only virtual memory ranges.
+    ///
+    /// # Safety
+    ///
+    /// See [`Mmap`].
     pub unsafe fn map_paths(
         index_path: impl AsRef<Path>,
         value_path: impl AsRef<Path>,
@@ -117,6 +124,10 @@ impl MmapCache {
     }
 
     /// Maps`index_file` and `value_file` to read-only virtual memory ranges.
+    ///
+    /// # Safety
+    ///
+    /// See [`Mmap`].
     pub unsafe fn map_files(index_file: &fs::File, value_file: &fs::File) -> Result<Self, Error> {
         let index_mmap = Mmap::map(index_file)?;
         let value_mmap = Mmap::map(value_file)?;
