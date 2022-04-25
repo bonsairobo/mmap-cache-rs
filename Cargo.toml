@@ -1,0 +1,11 @@
+[package]
+name = "mmap-cache"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+fst = "0.4"
+memmap = "0.7"
+
+[dev-dependencies]
+bytemuck = "1.9"
