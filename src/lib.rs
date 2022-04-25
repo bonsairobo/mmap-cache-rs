@@ -14,7 +14,7 @@ mod tests {
     use super::*;
 
     use bytemuck::cast_slice;
-    use fst::Streamer;
+    use fst::{IntoStreamer, Streamer};
 
     #[test]
     fn serialize_and_read() {
@@ -37,7 +37,7 @@ mod tests {
         let cache = unsafe { MmapCache::map_paths(index_path, values_path) }.unwrap();
         let dog: &[u8] = b"dog";
         let frog: &[u8] = b"frog";
-        let mut stream = cache.range_stream(dog..=frog);
+        let mut stream = cache.range(dog..=frog).into_stream();
         let mut key_values = Vec::new();
         while let Some((key, offset)) = stream.next() {
             let value: &[i32; 3] = unsafe { cache.value_at_offset(offset) };
@@ -49,7 +49,12 @@ mod tests {
             [(dog.to_vec(), &[2, 3, 4]), (frog.to_vec(), &[3, 4, 5])]
         );
 
-        assert_eq!(cache.first_key().as_ref(), Some(b"cat"));
-        assert_eq!(cache.last_key().as_ref(), Some(b"goose"));
+        let (first_key, first_offset) = cache.first().unwrap();
+        assert_eq!(&first_key, b"cat");
+        assert_eq!(first_offset, 0);
+
+        let (last_key, last_offset) = cache.last().unwrap();
+        assert_eq!(&last_key, b"goose");
+        assert_eq!(last_offset, 36);
     }
 }

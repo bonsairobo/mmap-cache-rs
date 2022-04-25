@@ -1,6 +1,6 @@
 use crate::Error;
 
-use fst::{IntoStreamer, Streamer};
+use fst::Streamer;
 use memmap::Mmap;
 use std::fs;
 use std::mem;
@@ -58,7 +58,7 @@ where
     /// Returns a streaming iterator over (key, value offset) pairs.
     ///
     /// The offset is a byte offset pointing to the start of the value for that key.
-    pub fn range_stream<K, R>(&self, key_range: R) -> fst::map::Stream
+    pub fn range<K, R>(&self, key_range: R) -> fst::map::StreamBuilder
     where
         K: AsRef<[u8]>,
         R: RangeBounds<K>,
@@ -69,40 +69,45 @@ where
             Bound::Excluded(b) => builder.gt(b),
             Bound::Included(b) => builder.ge(b),
         };
-        let builder = match key_range.end_bound() {
+        match key_range.end_bound() {
             Bound::Unbounded => builder,
             Bound::Excluded(b) => builder.lt(b),
             Bound::Included(b) => builder.le(b),
-        };
-        builder.into_stream()
+        }
     }
 
+    /// Returns the (lexicographical) first (key, value) pair.
+    ///
     /// # Panics
     ///
     /// If the actual first key is longer than `N`.
-    pub fn first_key<const N: usize>(&self) -> Option<[u8; N]> {
-        self.index.keys().next().map(|k| {
+    pub fn first<const N: usize>(&self) -> Option<([u8; N], ValueOffset)> {
+        self.index.stream().next().map(|(k, offset)| {
             let mut key = [0; N];
             key.copy_from_slice(k);
-            key
+            (key, offset)
         })
     }
 
+    /// Returns the (lexicographical) last (key, value) pair.
+    ///
     /// # Panics
     ///
     /// If the actual last key is longer than `N`.
-    pub fn last_key<const N: usize>(&self) -> Option<[u8; N]> {
+    pub fn last<const N: usize>(&self) -> Option<([u8; N], ValueOffset)> {
         let raw = self.index.as_fst();
         let mut key = [0; N];
         let mut n = raw.root();
         let mut i = 0;
+        let mut offset = 0;
         while !n.is_final() {
             let last = n.transition(n.len() - 1);
             key[i] = last.inp;
             n = raw.node(last.addr);
             i += 1;
+            offset += last.out.value();
         }
-        (i == N).then(|| key)
+        (i == N).then(|| (key, offset))
     }
 }
 
