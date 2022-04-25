@@ -59,18 +59,18 @@ where
         K: AsRef<[u8]>,
         R: RangeBounds<K>,
     {
-        let range_builder = self.index.range();
-        let range_builder = match key_range.start_bound() {
-            Bound::Unbounded => range_builder,
-            Bound::Excluded(b) => range_builder.gt(b),
-            Bound::Included(b) => range_builder.ge(b),
+        let builder = self.index.range();
+        let builder = match key_range.start_bound() {
+            Bound::Unbounded => builder,
+            Bound::Excluded(b) => builder.gt(b),
+            Bound::Included(b) => builder.ge(b),
         };
-        let range_builder = match key_range.end_bound() {
-            Bound::Unbounded => range_builder,
-            Bound::Excluded(b) => range_builder.lt(b),
-            Bound::Included(b) => range_builder.le(b),
+        let builder = match key_range.end_bound() {
+            Bound::Unbounded => builder,
+            Bound::Excluded(b) => builder.lt(b),
+            Bound::Included(b) => builder.le(b),
         };
-        range_builder.into_stream()
+        builder.into_stream()
     }
 }
 
