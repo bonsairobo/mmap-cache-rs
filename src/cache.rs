@@ -130,12 +130,7 @@ where
     pub fn last_le<const N: usize>(&self, upper_bound: &[u8]) -> Option<([u8; N], u64)> {
         let raw = self.index.as_fst();
         let mut key = [0; N];
-        let offset = self.last_le_recursive(
-            raw,
-            upper_bound,
-            LastLeSearch::initial(raw.root()),
-            &mut key,
-        );
+        let offset = self.last_le_recursive(raw, upper_bound, LastLeSearch::initial(raw), &mut key);
         offset.map(|o| (key, o))
     }
 
@@ -207,12 +202,15 @@ struct LastLeSearch<'a> {
 }
 
 impl<'a> LastLeSearch<'a> {
-    fn initial(node: Node<'a>) -> Self {
+    fn initial<B>(raw: &'a fst::raw::Fst<B>) -> Self
+    where
+        B: AsRef<[u8]>,
+    {
         Self {
             parent_ordering: Ordering::Equal,
             byte_i: 0,
             offset_sum: 0,
-            node,
+            node: raw.root(),
         }
     }
 
