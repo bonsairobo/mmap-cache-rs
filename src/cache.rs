@@ -49,11 +49,19 @@ where
     }
 
     /// Transmutes the bytes starting at `offset` into a `T` reference.
+    ///
+    /// # Safety
+    ///
+    /// `offset` must point to a valid representation of `T` in the `value_bytes` region of memory.
     pub unsafe fn offset_transmuted_value<T>(&self, offset: usize) -> &T {
         std::mem::transmute(&self.value_bytes()[offset])
     }
 
     /// Transmutes the bytes pointed to by `key` (if any) into a `T` reference.
+    ///
+    /// # Safety
+    ///
+    /// `key` must point to a valid representation of `T` in the `value_bytes` region of memory.
     pub unsafe fn get_transmuted_value<T>(&self, key: &[u8]) -> Option<&T> {
         self.get_value_offset(key)
             .map(|offset| self.offset_transmuted_value(offset.try_into().unwrap()))
@@ -104,7 +112,7 @@ where
         let mut n = raw.root();
         let mut i = 0;
         let mut offset = 0;
-        while !n.is_final() || n.len() > 0 {
+        while !n.is_final() || !n.is_empty() {
             let last = n.transition(n.len() - 1);
             key[i] = last.inp;
             n = raw.node(last.addr);
@@ -122,15 +130,10 @@ where
     pub fn last_le<const N: usize>(&self, upper_bound: &[u8]) -> Option<([u8; N], u64)> {
         let raw = self.index.as_fst();
         let mut key = [0; N];
-        let byte_i = 0;
-        let offset_sum = 0;
         let offset = self.last_le_recursive(
-            Ordering::Equal,
             raw,
             upper_bound,
-            byte_i,
-            raw.root(),
-            offset_sum,
+            LastLeSearch::initial(raw.root()),
             &mut key,
         );
         offset.map(|o| (key, o))
@@ -138,77 +141,103 @@ where
 
     fn last_le_recursive<const N: usize>(
         &self,
-        parent_ordering: Ordering,
         raw: &fst::raw::Fst<DK>,
         upper_bound: &[u8],
-        byte_i: usize,
-        node: Node,
-        offset_sum: u64,
+        state: LastLeSearch,
         key: &mut [u8; N],
     ) -> Option<u64> {
-        if let Ordering::Greater = parent_ordering {
+        if let Ordering::Greater = state.parent_ordering {
             return None;
         }
 
-        let le_found = if node.len() > 0 && byte_i < N {
-            match parent_ordering {
+        let le_found = if !state.node.is_empty() && state.byte_i < N {
+            match state.parent_ordering {
                 Ordering::Greater => unreachable!(),
                 Ordering::Equal => {
-                    if byte_i < upper_bound.len() {
+                    if state.byte_i < upper_bound.len() {
                         // We need to backtrack if the least terminal key is GREATER than upper_bound.
-                        find_last_le_transition(node, upper_bound[byte_i]).and_then(|(t_i, t)| {
-                            key[byte_i] = t.inp;
-                            self.last_le_recursive(
-                                t.inp.cmp(&upper_bound[byte_i]),
-                                raw,
-                                upper_bound,
-                                byte_i + 1,
-                                raw.node(t.addr),
-                                offset_sum + t.out.value(),
-                                key,
-                            )
-                            .or_else(|| {
-                                // Backtrack. We should only need to move to the next greatest key.
-                                if t_i > 0 {
-                                    let t = node.transition(t_i - 1);
-                                    key[byte_i] = t.inp;
-                                    self.last_le_recursive(
-                                        Ordering::Less,
-                                        raw,
-                                        upper_bound,
-                                        byte_i + 1,
-                                        raw.node(t.addr),
-                                        offset_sum + t.out.value(),
-                                        key,
-                                    )
-                                } else {
-                                    None
-                                }
-                            })
-                        })
+                        find_last_le_transition(state.node, upper_bound[state.byte_i]).and_then(
+                            |(t_i, t)| {
+                                key[state.byte_i] = t.inp;
+                                let next_state = state.next(raw, upper_bound, t);
+                                self.last_le_recursive(raw, upper_bound, next_state, key)
+                                    .or_else(|| {
+                                        // Backtrack. We should only need to move to the next greatest key.
+                                        if t_i > 0 {
+                                            let t = state.node.transition(t_i - 1);
+                                            key[state.byte_i] = t.inp;
+                                            let next_state =
+                                                state.next_with_ordering(raw, t, Ordering::Less);
+                                            self.last_le_recursive(
+                                                raw,
+                                                upper_bound,
+                                                next_state,
+                                                key,
+                                            )
+                                        } else {
+                                            None
+                                        }
+                                    })
+                            },
+                        )
                     } else {
                         None
                     }
                 }
                 Ordering::Less => {
                     // We're already LESS, so just take the greatest key we can find.
-                    let t = node.transition(node.len() - 1);
-                    key[byte_i] = t.inp;
-                    self.last_le_recursive(
-                        Ordering::Less,
-                        raw,
-                        upper_bound,
-                        byte_i + 1,
-                        raw.node(t.addr),
-                        offset_sum + t.out.value(),
-                        key,
-                    )
+                    let t = state.node.transition(state.node.len() - 1);
+                    key[state.byte_i] = t.inp;
+                    let next_state = state.next_with_ordering(raw, t, Ordering::Less);
+                    self.last_le_recursive(raw, upper_bound, next_state, key)
                 }
             }
         } else {
             None
         };
-        le_found.or_else(|| node.is_final().then(|| offset_sum))
+        le_found.or_else(|| state.node.is_final().then(|| state.offset_sum))
+    }
+}
+
+struct LastLeSearch<'a> {
+    parent_ordering: Ordering,
+    byte_i: usize,
+    offset_sum: u64,
+    node: Node<'a>,
+}
+
+impl<'a> LastLeSearch<'a> {
+    fn initial(node: Node<'a>) -> Self {
+        Self {
+            parent_ordering: Ordering::Equal,
+            byte_i: 0,
+            offset_sum: 0,
+            node,
+        }
+    }
+
+    fn next<B>(&self, raw: &'a fst::raw::Fst<B>, upper_bound: &[u8], t: Transition) -> Self
+    where
+        B: AsRef<[u8]>,
+    {
+        self.next_with_ordering(raw, t, t.inp.cmp(&upper_bound[self.byte_i]))
+    }
+
+    fn next_with_ordering<B>(
+        &self,
+        raw: &'a fst::raw::Fst<B>,
+        t: Transition,
+        ordering: Ordering,
+    ) -> Self
+    where
+        B: AsRef<[u8]>,
+    {
+        Self {
+            parent_ordering: ordering,
+            byte_i: self.byte_i + 1,
+            node: raw.node(t.addr),
+            offset_sum: self.offset_sum + t.out.value(),
+        }
     }
 }
 
