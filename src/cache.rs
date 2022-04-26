@@ -6,12 +6,8 @@ use fst::Streamer;
 use memmap::Mmap;
 use std::cmp::Ordering;
 use std::fs;
-use std::mem;
 use std::ops::{Bound, RangeBounds};
 use std::path::Path;
-
-/// The byte offset of a value in a [`Cache`].
-pub type ValueOffset = u64;
 
 /// A cache, mapping `[u8]` keys to `[u8]` values.
 ///
@@ -35,26 +31,19 @@ where
         })
     }
 
+    /// Access the internal [`fst::Map`] used for mapping keys to value offsets.
     pub fn index(&self) -> &fst::Map<DK> {
         &self.index
     }
 
-    /// Loads the value at the given byte offset.
-    ///
-    /// Note that this may block in the case of a page fault, and this will be a common scenario for large or cold data sets.
-    ///
-    /// # Safety
-    ///
-    /// `offset` must be an offset that points to the start of a `T` value. Valid offsets can be gotten from
-    /// `get_value_offset` and `range_stream`.
-    pub unsafe fn value_at_offset<T>(&self, offset: ValueOffset) -> &T {
-        mem::transmute(&self.value_bytes.as_ref()[offset as usize])
+    pub fn value_bytes(&self) -> &[u8] {
+        self.value_bytes.as_ref()
     }
 
     /// Returns the byte offset of the value for `key`, if it exists.
     ///
     /// The returned offset can be used with the `value_at_offset` method.
-    pub fn get_value_offset(&self, key: &[u8]) -> Option<ValueOffset> {
+    pub fn get_value_offset(&self, key: &[u8]) -> Option<u64> {
         self.index.get(key)
     }
 
@@ -84,7 +73,7 @@ where
     /// # Panics
     ///
     /// If the actual first key is longer than `N`.
-    pub fn first<const N: usize>(&self) -> Option<([u8; N], ValueOffset)> {
+    pub fn first<const N: usize>(&self) -> Option<([u8; N], u64)> {
         self.index.stream().next().map(|(k, offset)| {
             let mut key = [0; N];
             key.copy_from_slice(k);
@@ -97,7 +86,7 @@ where
     /// # Panics
     ///
     /// If the actual last key is longer than `N`.
-    pub fn last<const N: usize>(&self) -> Option<([u8; N], ValueOffset)> {
+    pub fn last<const N: usize>(&self) -> Option<([u8; N], u64)> {
         let raw = self.index.as_fst();
         let mut key = [0; N];
         let mut n = raw.root();
@@ -118,7 +107,7 @@ where
     /// # Panics
     ///
     /// If the actual found key is longer than `N`.
-    pub fn last_le<const N: usize>(&self, upper_bound: &[u8]) -> Option<([u8; N], ValueOffset)> {
+    pub fn last_le<const N: usize>(&self, upper_bound: &[u8]) -> Option<([u8; N], u64)> {
         let raw = self.index.as_fst();
         let mut key = [0; N];
         let byte_i = 0;
@@ -142,17 +131,12 @@ where
         upper_bound: &[u8],
         byte_i: usize,
         node: Node,
-        offset_sum: ValueOffset,
+        offset_sum: u64,
         key: &mut [u8; N],
-    ) -> Option<ValueOffset> {
-        // println!("Ordering = {parent_ordering:?}");
-
+    ) -> Option<u64> {
         if let Ordering::Greater = parent_ordering {
             return None;
         }
-
-        // println!("Visiting {node:?}");
-        // println!("Key = {key:?}");
 
         let le_found = if node.len() > 0 && byte_i < N {
             match parent_ordering {
@@ -172,7 +156,6 @@ where
                                 key,
                             )
                             .or_else(|| {
-                                // println!("Backtrack");
                                 // Backtrack. We should only need to move to the next greatest key.
                                 if t_i > 0 {
                                     let t = node.transition(t_i - 1);
@@ -211,7 +194,6 @@ where
                 }
             }
         } else {
-            // println!("Boundary condition");
             None
         };
         le_found.or_else(|| node.is_final().then(|| offset_sum))

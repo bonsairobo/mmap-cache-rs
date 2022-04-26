@@ -1,4 +1,4 @@
-use crate::{Error, ValueOffset};
+use crate::Error;
 
 use std::fs;
 use std::io;
@@ -37,7 +37,7 @@ where
     pub fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), Error> {
         self.value_writer.write_all(value)?;
         self.map_builder
-            .insert(key, ValueOffset::try_from(self.value_byte_offset).unwrap())?;
+            .insert(key, u64::try_from(self.value_byte_offset).unwrap())?;
         self.value_byte_offset += value.len();
         Ok(())
     }

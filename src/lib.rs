@@ -1,3 +1,29 @@
+//! A low-level API for a memory-mapped cache of a read-only key-value store.
+//!
+//! ## Example
+//!
+//! ```
+//! # use mmap_cache::Error;
+//! # fn example() -> Result<(), Error> {
+//! use mmap_cache::{FileBuilder, MmapCache};
+//!
+//! const INDEX_PATH: &str = "/tmp/mmap_cache_index";
+//! const VALUES_PATH: &str = "/tmp/mmap_cache_values";
+//!
+//! // Serialize to files.
+//! let mut builder = FileBuilder::create_files(INDEX_PATH, VALUES_PATH)?;
+//! builder.insert(b"foo", b"bar")?;
+//! builder.finish()?;
+//!
+//! // Map the files into memory.
+//! let cache = unsafe { MmapCache::map_paths(INDEX_PATH, VALUES_PATH) }?;
+//! let offset = cache.get_value_offset(b"foo").unwrap() as usize;
+//! let value: &[u8; 3] = unsafe { std::mem::transmute(&cache.value_bytes()[offset]) };
+//! assert_eq!(value, b"bar");
+//! # Ok(())
+//! # }
+//! ```
+
 mod builder;
 mod cache;
 mod error;
@@ -26,7 +52,8 @@ mod tests {
         let mut stream = cache.range(dog..=gator).into_stream();
         let mut key_values = Vec::new();
         while let Some((key, offset)) = stream.next() {
-            let value: &[i32; 3] = unsafe { cache.value_at_offset(offset) };
+            let offset = offset as usize;
+            let value: &[i32; 3] = unsafe { std::mem::transmute(&cache.value_bytes()[offset]) };
             key_values.push((key.to_vec(), value));
         }
 
