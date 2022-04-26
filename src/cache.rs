@@ -265,7 +265,7 @@ fn find_last_le_transition(node: Node, upper_bound: u8) -> Option<(usize, Transi
             }
 
             // Not the last LE transition, so we need to search higher than mid.
-            lower = mid;
+            lower = mid + 1;
         } else {
             // Transition too large, search lower than mid.
             upper = mid;
