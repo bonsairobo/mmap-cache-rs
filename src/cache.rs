@@ -3,7 +3,7 @@ use crate::Error;
 use fst::raw::Node;
 use fst::raw::Transition;
 use fst::Streamer;
-use memmap::Mmap;
+use memmap2::Mmap;
 use std::cmp::Ordering;
 use std::fs;
 use std::ops::{Bound, RangeBounds};

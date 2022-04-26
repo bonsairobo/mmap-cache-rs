@@ -44,7 +44,7 @@ pub use cache::*;
 pub use error::*;
 
 pub use fst;
-pub use memmap;
+pub use memmap2;
 
 #[cfg(test)]
 mod tests {
