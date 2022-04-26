@@ -1,7 +1,10 @@
 use crate::Error;
 
+use fst::raw::Node;
+use fst::raw::Transition;
 use fst::Streamer;
 use memmap::Mmap;
+use std::cmp::Ordering;
 use std::fs;
 use std::mem;
 use std::ops::{Bound, RangeBounds};
@@ -100,7 +103,7 @@ where
         let mut n = raw.root();
         let mut i = 0;
         let mut offset = 0;
-        while !n.is_final() {
+        while !n.is_final() || n.len() > 0 {
             let last = n.transition(n.len() - 1);
             key[i] = last.inp;
             n = raw.node(last.addr);
@@ -109,6 +112,144 @@ where
         }
         (i == N).then(|| (key, offset))
     }
+
+    /// Finds the (lexicographical) greatest key `k` such that `k <= upper_bound`.
+    ///
+    /// # Panics
+    ///
+    /// If the actual found key is longer than `N`.
+    pub fn last_le<const N: usize>(&self, upper_bound: &[u8]) -> Option<([u8; N], ValueOffset)> {
+        let raw = self.index.as_fst();
+        let mut key = [0; N];
+        let byte_i = 0;
+        let offset_sum = 0;
+        let offset = self.last_le_recursive(
+            Ordering::Equal,
+            raw,
+            upper_bound,
+            byte_i,
+            raw.root(),
+            offset_sum,
+            &mut key,
+        );
+        offset.map(|o| (key, o))
+    }
+
+    fn last_le_recursive<const N: usize>(
+        &self,
+        parent_ordering: Ordering,
+        raw: &fst::raw::Fst<DK>,
+        upper_bound: &[u8],
+        byte_i: usize,
+        node: Node,
+        offset_sum: ValueOffset,
+        key: &mut [u8; N],
+    ) -> Option<ValueOffset> {
+        // println!("Ordering = {parent_ordering:?}");
+
+        if let Ordering::Greater = parent_ordering {
+            return None;
+        }
+
+        // println!("Visiting {node:?}");
+        // println!("Key = {key:?}");
+
+        let le_found = if node.len() > 0 && byte_i < N {
+            match parent_ordering {
+                Ordering::Greater => unreachable!(),
+                Ordering::Equal => {
+                    if byte_i < upper_bound.len() {
+                        // We need to backtrack if the least terminal key is GREATER than upper_bound.
+                        find_last_le_transition(node, upper_bound[byte_i]).and_then(|(t_i, t)| {
+                            key[byte_i] = t.inp;
+                            self.last_le_recursive(
+                                t.inp.cmp(&upper_bound[byte_i]),
+                                raw,
+                                upper_bound,
+                                byte_i + 1,
+                                raw.node(t.addr),
+                                offset_sum + t.out.value(),
+                                key,
+                            )
+                            .or_else(|| {
+                                // println!("Backtrack");
+                                // Backtrack. We should only need to move to the next greatest key.
+                                if t_i > 0 {
+                                    let t = node.transition(t_i - 1);
+                                    key[byte_i] = t.inp;
+                                    self.last_le_recursive(
+                                        Ordering::Less,
+                                        raw,
+                                        upper_bound,
+                                        byte_i + 1,
+                                        raw.node(t.addr),
+                                        offset_sum + t.out.value(),
+                                        key,
+                                    )
+                                } else {
+                                    None
+                                }
+                            })
+                        })
+                    } else {
+                        None
+                    }
+                }
+                Ordering::Less => {
+                    // We're already LESS, so just take the greatest key we can find.
+                    let t = node.transition(node.len() - 1);
+                    key[byte_i] = t.inp;
+                    self.last_le_recursive(
+                        Ordering::Less,
+                        raw,
+                        upper_bound,
+                        byte_i + 1,
+                        raw.node(t.addr),
+                        offset_sum + t.out.value(),
+                        key,
+                    )
+                }
+            }
+        } else {
+            // println!("Boundary condition");
+            None
+        };
+        le_found.or_else(|| node.is_final().then(|| offset_sum))
+    }
+}
+
+/// If there are any transitions from `node` whose input byte is LE `upper_bound`, then one of them will be returned. If there
+/// are multiple such transitions, the one with the greatest input byte is returned.
+fn find_last_le_transition(node: Node, upper_bound: u8) -> Option<(usize, Transition)> {
+    // Binary search over the transitions.
+    let mut lower = 0;
+    let mut upper = node.len();
+    while lower != upper {
+        let mid = (lower + upper) / 2;
+
+        let t = node.transition(mid);
+        if t.inp <= upper_bound {
+            if mid == node.len() - 1 {
+                // Transition byte is LE our upper_bound, and we're at the right end of the transitions, so this is the *last*
+                // LE transition.
+                return Some((mid, t));
+            }
+
+            let next_t = node.transition(mid + 1);
+            if next_t.inp > upper_bound {
+                // Transition byte is LE our upper_bound, and the next transition byte is *not*, so this is the *last* LE
+                // transition.
+                return Some((mid, t));
+            }
+
+            // Not the last LE transition, so we need to search higher than mid.
+            lower = mid;
+        } else {
+            // Transition too large, search lower than mid.
+            upper = mid;
+        }
+    }
+    None
 }
 
 pub type MmapCache = Cache<Mmap, Mmap>;
