@@ -253,8 +253,7 @@ fn find_last_le_transition(node: Node, upper_bound: u8) -> Option<(usize, Transi
         let t = node.transition(mid);
         if t.inp <= upper_bound {
             if mid == node.len() - 1 {
-                // Transition byte is LE our upper_bound, and we're at the right end of the transitions, so this is the *last*
-                // LE transition.
+                // Transition byte is LE our upper_bound, and we're at the last transition, so this is the *last* LE transition.
                 return Some((mid, t));
             }
 
