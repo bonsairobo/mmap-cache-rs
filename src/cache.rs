@@ -36,6 +36,7 @@ where
         &self.index
     }
 
+    /// The entire byte slice storing all values.
     pub fn value_bytes(&self) -> &[u8] {
         self.value_bytes.as_ref()
     }
@@ -45,6 +46,17 @@ where
     /// The returned offset can be used with the `value_at_offset` method.
     pub fn get_value_offset(&self, key: &[u8]) -> Option<u64> {
         self.index.get(key)
+    }
+
+    /// Transmutes the bytes starting at `offset` into a `T` reference.
+    pub unsafe fn offset_transmuted_value<T>(&self, offset: usize) -> &T {
+        std::mem::transmute(&self.value_bytes()[offset])
+    }
+
+    /// Transmutes the bytes pointed to by `key` (if any) into a `T` reference.
+    pub unsafe fn get_transmuted_value<T>(&self, key: &[u8]) -> Option<&T> {
+        self.get_value_offset(key)
+            .map(|offset| self.offset_transmuted_value(offset.try_into().unwrap()))
     }
 
     /// Returns a streaming iterator over (key, value offset) pairs.

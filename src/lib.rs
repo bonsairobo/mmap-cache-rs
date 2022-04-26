@@ -28,9 +28,8 @@
 //!
 //! // Map the files into memory.
 //! let cache = unsafe { MmapCache::map_paths(INDEX_PATH, VALUES_PATH) }?;
-//! let offset = cache.get_value_offset(b"foo").unwrap() as usize;
-//! let value: &[u8; 3] = unsafe { std::mem::transmute(&cache.value_bytes()[offset]) };
-//! assert_eq!(value, b"bar");
+//! let value = unsafe { cache.get_transmuted_value(b"foo") };
+//! assert_eq!(value, Some(b"bar"));
 //! # Ok(())
 //! # }
 //! # example().unwrap();
