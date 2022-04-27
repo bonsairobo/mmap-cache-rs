@@ -124,9 +124,7 @@ where
 
     /// Finds the (lexicographical) greatest key `k` such that `k <= upper_bound`.
     ///
-    /// # Panics
-    ///
-    /// If the actual found key is longer than `N`.
+    /// If the found key does not find in `[u8; N]`, then `None` is returned instead.
     pub fn last_le<const N: usize>(&self, upper_bound: &[u8]) -> Option<([u8; N], u64)> {
         let raw = self.index.as_fst();
         let mut key = [0; N];
