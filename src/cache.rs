@@ -143,7 +143,7 @@ where
             return None;
         }
 
-        let le_found = if !state.node.is_empty() && state.byte_i < N {
+        let le_found = if !state.node.is_empty() {
             match state.parent_ordering {
                 Ordering::Greater => unreachable!(),
                 Ordering::Equal => {
