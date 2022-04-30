@@ -41,7 +41,7 @@ where
         self.commit_value(key)
     }
 
-    /// Completes the sequence of value bytes written since that last call of `commit_value`.
+    /// Completes the sequence of value bytes written since that last call of `commit_value` or `insert`.
     pub fn commit_value(&mut self, key: &[u8]) -> Result<(), Error> {
         self.map_builder
             .insert(key, u64::try_from(self.committed_value_cursor).unwrap())?;
