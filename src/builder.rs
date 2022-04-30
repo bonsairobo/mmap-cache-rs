@@ -35,7 +35,7 @@ where
         })
     }
 
-    /// Writes `value` into the value stream, storing its [`ValueOffset`] along with the `key` in the [`fst::Map`].
+    /// Writes `value` into the value stream, storing its [`u64`] offset along with the `key` in the [`fst::Map`].
     pub fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), Error> {
         self.append_value_bytes(value)?;
         self.commit_value(key)
