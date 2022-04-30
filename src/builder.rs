@@ -8,7 +8,8 @@ use std::path::Path;
 pub struct Builder<WK, WV> {
     map_builder: fst::MapBuilder<WK>,
     value_writer: WV,
-    value_byte_offset: usize,
+    value_cursor: usize,
+    committed_value_cursor: usize,
 }
 
 impl<WK, WV> Builder<WK, WV>
@@ -29,16 +30,27 @@ where
         Ok(Self {
             map_builder: fst::MapBuilder::new(index_writer)?,
             value_writer,
-            value_byte_offset: 0,
+            committed_value_cursor: 0,
+            value_cursor: 0,
         })
     }
 
     /// Writes `value` into the value stream, storing its [`ValueOffset`] along with the `key` in the [`fst::Map`].
     pub fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), Error> {
-        self.value_writer.write_all(value)?;
+        self.write_value(value)?;
         self.map_builder
-            .insert(key, u64::try_from(self.value_byte_offset).unwrap())?;
-        self.value_byte_offset += value.len();
+            .insert(key, u64::try_from(self.committed_value_cursor).unwrap())?;
+        self.committed_value_cursor = self.value_cursor;
+        Ok(())
+    }
+
+    /// Writes `value` into the value stream. Does not modify the index or byte cursor.
+    ///
+    /// This can be useful for dynamic value encodings. For example, if you want to encode the length of a dynamically sized
+    /// value, you can `write_value(&value_length.to_be_bytes())`.
+    pub fn write_value(&mut self, value: &[u8]) -> Result<(), Error> {
+        self.value_writer.write_all(value)?;
+        self.value_cursor += value.len();
         Ok(())
     }
 
