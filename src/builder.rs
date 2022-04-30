@@ -5,6 +5,42 @@ use std::io;
 use std::path::Path;
 
 /// Serializes a stream of `([u8], [u8])` key-value pairs.
+///
+/// Serialization happens by writing key-value pairs in sorted order. A value is always written before its corresponding key,
+/// because the index will map that key to the starting byte offset of the value that was written.
+///
+/// Many calls of `append_value_bytes` can be made before committing the key --> offset mapping:
+///
+/// ```
+/// # use mmap_cache::Error;
+/// # fn example() -> Result<(), Error> {
+/// use mmap_cache::{Builder, Cache};
+///
+/// let mut index_bytes = Vec::new();
+/// let mut value_bytes = Vec::new();
+///
+/// let mut builder = Builder::new(&mut index_bytes, &mut value_bytes)?;
+///
+/// // Write a value with multiple append calls.
+/// builder.append_value_bytes(&777u32.to_be_bytes())?;
+/// builder.append_value_bytes(&777u32.to_be_bytes())?;
+/// builder.commit_entry(b"hot_garbage")?;
+///
+/// // Or equivalently, use just one insert call.
+/// let mut buf = [0; 8];
+/// buf[0..4].copy_from_slice(&777u32.to_be_bytes());
+/// buf[4..8].copy_from_slice(&777u32.to_be_bytes());
+/// builder.insert(b"lots_of_garbage", &buf)?;
+///
+/// builder.finish()?;
+///
+/// let cache = Cache::new(&index_bytes, &value_bytes)?;
+/// assert_eq!(cache.get_value_offset(b"hot_garbage"), Some(0));
+/// assert_eq!(cache.get_value_offset(b"lots_of_garbage"), Some(8));
+/// # Ok(())
+/// # }
+/// # example().unwrap();
+/// ```
 pub struct Builder<WK, WV> {
     map_builder: fst::MapBuilder<WK>,
     value_writer: WV,
@@ -25,7 +61,7 @@ where
     /// ## Warning
     ///
     /// This crate has no control over the alignment guarantees provided by the given writers. Be careful to preserve alignment
-    /// when using [`memmap`].
+    /// when using [`memmap2`].
     pub fn new(index_writer: WK, value_writer: WV) -> Result<Self, Error> {
         Ok(Self {
             map_builder: fst::MapBuilder::new(index_writer)?,
@@ -35,24 +71,25 @@ where
         })
     }
 
-    /// Writes `value` into the value stream, storing its [`u64`] offset along with the `key` in the [`fst::Map`].
+    /// Writes `value` into the value stream and commits the entry, storing the value's [`u64`] byte offset along with the `key`
+    /// in the [`fst::Map`].
     pub fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), Error> {
         self.append_value_bytes(value)?;
-        self.commit_value(key)
+        self.commit_entry(key)
     }
 
-    /// Completes the sequence of value bytes written since that last call of `commit_value` or `insert`.
-    pub fn commit_value(&mut self, key: &[u8]) -> Result<(), Error> {
+    /// Finishes writing the current value, associating the starting byte offset of the value with `key`.
+    pub fn commit_entry(&mut self, key: &[u8]) -> Result<(), Error> {
         self.map_builder
             .insert(key, u64::try_from(self.committed_value_cursor).unwrap())?;
         self.committed_value_cursor = self.value_cursor;
         Ok(())
     }
 
-    /// Writes `value` into the value stream. Does not modify the index or byte cursor.
+    /// Writes `value` into the value stream.
     ///
-    /// This can be useful for dynamic value encodings. For example, if you want to encode the length of a dynamically sized
-    /// value, you can `append_value_bytes(&value_length.to_be_bytes())`.
+    /// The caller may continue appending more value bytes as needed before calling `commit_entry` to finish the current entry
+    /// and start a new one.
     pub fn append_value_bytes(&mut self, value: &[u8]) -> Result<(), Error> {
         self.value_writer.write_all(value)?;
         self.value_cursor += value.len();
