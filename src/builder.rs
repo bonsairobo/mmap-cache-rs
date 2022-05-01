@@ -103,7 +103,7 @@ where
     }
 }
 
-pub type FileBuilder = Builder<fs::File, fs::File>;
+pub type FileBuilder = Builder<io::BufWriter<fs::File>, io::BufWriter<fs::File>>;
 
 impl FileBuilder {
     /// Creates a new [`Builder`], using the file at `index_path` for an index writer and the file at `value_path` as a value
@@ -116,8 +116,8 @@ impl FileBuilder {
         index_path: impl AsRef<Path>,
         value_path: impl AsRef<Path>,
     ) -> Result<Self, Error> {
-        let index_file = fs::File::create(index_path)?;
-        let value_file = fs::File::create(value_path)?;
-        Builder::new(index_file, value_file)
+        let index_writer = io::BufWriter::new(fs::File::create(index_path)?);
+        let value_writer = io::BufWriter::new(fs::File::create(value_path)?);
+        Builder::new(index_writer, value_writer)
     }
 }
