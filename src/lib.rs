@@ -34,6 +34,12 @@
 //! # }
 //! # example().unwrap();
 //! ```
+//!
+//! ## IO Concurrency
+//!
+//! When using [`memmap2`] on a large file, it's likely that accessing values from the cache will cause the thread to block in
+//! the operating system scheduler while the page cache is filled from the file system. To achieve concurrency IO up to some
+//! maximum concurrency N, you could dispatch your IOs in a thread pool of N threads.
 
 mod builder;
 mod cache;

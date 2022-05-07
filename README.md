@@ -31,3 +31,11 @@ let cache = unsafe { MmapCache::map_paths(INDEX_PATH, VALUES_PATH) }?;
 let value = unsafe { cache.get_transmuted_value(b"foo") };
 assert_eq!(value, Some(b"bar"));
 ```
+
+### IO Concurrency
+
+When using [`memmap2`] on a large file, it's likely that accessing values from the cache will cause the thread to block in
+the operating system scheduler while the page cache is filled from the file system. To achieve concurrency IO up to some
+maximum concurrency N, you could dispatch your IOs in a thread pool of N threads.
+
+License: MIT OR Apache 2.0
