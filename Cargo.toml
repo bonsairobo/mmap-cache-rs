@@ -3,8 +3,8 @@ name = "mmap-cache"
 version = "0.1.0"
 edition = "2021"
 description = "A low-level, read-only, memory-mapped cache."
-license = "MIT OR Apache 2.0"
-keywords = "cache"
+license = "MIT OR Apache-2.0"
+keywords = ["cache"]
 
 [dependencies]
 fst = "0.4"
