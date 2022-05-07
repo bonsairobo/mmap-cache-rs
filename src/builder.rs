@@ -36,7 +36,9 @@ use std::path::Path;
 ///
 /// let cache = Cache::new(&index_bytes, &value_bytes)?;
 /// assert_eq!(cache.get_value_offset(b"hot_garbage"), Some(0));
+/// assert_eq!(unsafe { cache.get_transmuted_value(b"hot_garbage") }, Some(&buf));
 /// assert_eq!(cache.get_value_offset(b"lots_of_garbage"), Some(8));
+/// assert_eq!(unsafe { cache.get_transmuted_value(b"lots_of_garbage") }, Some(&buf));
 /// # Ok(())
 /// # }
 /// # example().unwrap();
