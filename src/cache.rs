@@ -13,7 +13,7 @@ use std::path::Path;
 ///
 /// This cache wraps generic byte storage that implements `AsRef<[u8]>`. This is most commonly a memory-mapped file, [`Mmap`].
 ///
-/// For serializing a stream of (key, value) pairs, see [`Builder`](crate::Builder).
+/// For serializing a stream of (key, value) pairs, see [`SortedBuilder`](crate::SortedBuilder).
 pub struct Cache<DK, DV> {
     index: fst::Map<DK>,
     value_bytes: DV,
