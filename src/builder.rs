@@ -7,6 +7,8 @@ use std::path::Path;
 
 /// Serializes an arbitrarily large sorted stream of `([u8], [u8])` key-value pairs.
 ///
+/// Duplicate keys are not supported.
+///
 /// Serialization happens by writing key-value pairs in sorted order. A value is always written before its corresponding key,
 /// because the index will map that key to the starting byte offset of the value that was written.
 ///
