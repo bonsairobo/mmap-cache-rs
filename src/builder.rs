@@ -17,9 +17,9 @@ use std::path::Path;
 /// ```
 /// # use mmap_cache::Error;
 /// # fn example() -> Result<(), Error> {
-/// use mmap_cache::{SortedBuilder, MmapCache};
+/// use mmap_cache::{FileBuilder, MmapCache};
 ///
-/// let mut builder = SortedBuilder::create_files("/tmp/mmap_cache_index", "/tmp/mmap_cache_values")?;
+/// let mut builder = FileBuilder::create_files("/tmp/mmap_cache_index", "/tmp/mmap_cache_values")?;
 ///
 /// // Write a value with multiple append calls.
 /// builder.append_value_bytes(&777u32.to_be_bytes())?;
@@ -43,15 +43,15 @@ use std::path::Path;
 /// # }
 /// # example().unwrap();
 /// ```
-pub struct SortedBuilder {
+pub struct FileBuilder {
     map_builder: fst::MapBuilder<io::BufWriter<fs::File>>,
     value_writer: io::BufWriter<fs::File>,
     value_cursor: usize,
     committed_value_cursor: usize,
 }
 
-impl SortedBuilder {
-    /// Creates a new [`SortedBuilder`] for serializing a collection of key-value pairs.
+impl FileBuilder {
+    /// Creates a new [`FileBuilder`] for serializing a collection of key-value pairs.
     ///
     /// - `index_writer`: Writes the serialized [`fst::Map`] which stores the value offsets.
     /// - `value_writer`: Writes the values pointed to by the byte offsets stored in the [`fst::Map`].
@@ -72,7 +72,7 @@ impl SortedBuilder {
         })
     }
 
-    /// Creates a new [`SortedBuilder`], using the file at `index_path` for an index writer and the file at `value_path` as a
+    /// Creates a new [`FileBuilder`], using the file at `index_path` for an index writer and the file at `value_path` as a
     /// value writer.
     ///
     /// This always overwrites the given files.
@@ -84,7 +84,7 @@ impl SortedBuilder {
     ) -> Result<Self, Error> {
         let index_writer = io::BufWriter::new(fs::File::create(index_path)?);
         let value_writer = io::BufWriter::new(fs::File::create(value_path)?);
-        SortedBuilder::new(index_writer, value_writer)
+        FileBuilder::new(index_writer, value_writer)
     }
 
     /// Writes `value` into the value stream and commits the entry, storing the value's [`u64`] byte offset along with the `key`

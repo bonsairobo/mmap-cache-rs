@@ -14,14 +14,14 @@
 //! ```
 //! # use mmap_cache::Error;
 //! # fn example() -> Result<(), Error> {
-//! use mmap_cache::{SortedBuilder, MmapCache};
+//! use mmap_cache::{FileBuilder, MmapCache};
 //!
 //! const INDEX_PATH: &str = "/tmp/mmap_cache_index";
 //! const VALUES_PATH: &str = "/tmp/mmap_cache_values";
 //!
 //! // Serialize to files. As required by the finite state transducer (FST) builder,
 //! // keys must be provided in sorted (lexicographical) order.
-//! let mut builder = SortedBuilder::create_files(INDEX_PATH, VALUES_PATH)?;
+//! let mut builder = FileBuilder::create_files(INDEX_PATH, VALUES_PATH)?;
 //! builder.insert(b"abc", b"def")?;
 //! builder.insert(b"foo", b"bar")?;
 //! builder.finish()?;
@@ -161,7 +161,7 @@ mod tests {
     ];
 
     fn serialize_example() {
-        let mut builder = SortedBuilder::create_files(INDEX_PATH, VALUES_PATH).unwrap();
+        let mut builder = FileBuilder::create_files(INDEX_PATH, VALUES_PATH).unwrap();
         for (key, value) in PAIRS {
             builder.insert(key, cast_slice(&value)).unwrap();
         }
