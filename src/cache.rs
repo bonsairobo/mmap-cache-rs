@@ -112,7 +112,7 @@ where
         let mut n = raw.root();
         let mut i = 0;
         let mut offset = 0;
-        while !n.is_final() || !n.is_empty() {
+        while !n.is_empty() {
             let last = n.transition(n.len() - 1);
             key[i] = last.inp;
             n = raw.node(last.addr);
