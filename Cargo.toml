@@ -9,6 +9,7 @@ keywords = ["cache"]
 [dependencies]
 fst = "0.4"
 memmap2 = "0.5"
+thiserror = "1.0"
 
 [dev-dependencies]
 bytemuck = "1.9"
