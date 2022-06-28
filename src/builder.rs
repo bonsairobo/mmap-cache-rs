@@ -112,10 +112,6 @@ impl FileBuilder {
         Ok(())
     }
 
-    pub fn advance_value_cursor(&mut self, num_bytes: usize) {
-        self.value_cursor += num_bytes;
-    }
-
     /// Completes the serialization and flushes any outstanding IO.
     pub fn finish(mut self) -> Result<(), Error> {
         self.value_writer.flush()?;
