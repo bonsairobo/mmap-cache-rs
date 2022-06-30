@@ -112,9 +112,25 @@ impl FileBuilder {
         Ok(())
     }
 
+    /// Writes zero padding until the cursor is aligned to `alignment`.
+    pub fn align_value_cursor(&mut self, alignment: usize) -> Result<(), Error> {
+        debug_assert!(alignment.is_power_of_two());
+        debug_assert!(alignment <= 16);
+        const ZERO_PAD: [u8; 16] = [0; 16];
+        let pad_size = next_multiple(self.value_cursor, alignment) - self.value_cursor;
+        self.value_writer.write_all(&ZERO_PAD[0..pad_size])?;
+        self.value_cursor += pad_size;
+        debug_assert_eq!(self.value_cursor % alignment, 0);
+        Ok(())
+    }
+
     /// Completes the serialization and flushes any outstanding IO.
     pub fn finish(mut self) -> Result<(), Error> {
         self.value_writer.flush()?;
         Ok(self.map_builder.finish()?)
     }
+}
+
+fn next_multiple(n: usize, k: usize) -> usize {
+    k * ((n + k - 1) / k)
 }
